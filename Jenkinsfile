@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         AWS_REGION              = 'us-east-1'
-        ECR_REPOSITORY          = '211125594036.dkr.ecr.us-east-1.amazonaws.com/my-app'
+        ECR_REPOSITORY          = '851725486612.dkr.ecr.us-east-1.amazonaws.com/my-app'
         ECS_CLUSTER_FARGATE     = 'my-app-fargate-cluster'
         ECS_SERVICE_FARGATE     = 'my-app-fargate-service'
         ECS_CLUSTER_EC2         = 'my-app-ec2-cluster'
