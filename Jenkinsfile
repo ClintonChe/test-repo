@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'ecs-agent' } // <-- THIS IS THE ONLY CHANGE
     environment {
         AWS_REGION              = 'us-east-1'
         ECR_REPOSITORY          = '851725486612.dkr.ecr.us-east-1.amazonaws.com/my-app'
