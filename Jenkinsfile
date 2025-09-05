@@ -4,7 +4,7 @@ parameters {
 }
 
 // Global environment variables
-def AWS_REGION = 'us-east-1'
+def AWS_REGION = 'us--east-1'
 def APP_NAME = 'my-app'
 def AWS_ACCOUNT_ID
 def ECR_REPOSITORY
@@ -17,6 +17,7 @@ pipeline {
     agent none 
     stages {
         stage('Prepare Environment') {
+            agent any // ✅ FIX: Assign an agent for this stage to run shell commands
             steps {
                 script {
                     AWS_ACCOUNT_ID = sh(returnStdout: true, script: 'aws sts get-caller-identity --query Account --output text').trim()
@@ -34,14 +35,13 @@ pipeline {
                     cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
-                    inheritFrom 'jenkins-agent' // ✅ CORRECTED PARAMETER
+                    inheritFrom 'jenkins-agent'
                     subnets PRIVATE_SUBNET_IDS
                     securityGroups AGENT_SECURITY_GROUP_ID
                     taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
                 }
             }
             environment {
-                // ✅ CORRECTED ASSIGNMENTS
                 AWS_ACCOUNT_ID      = "${AWS_ACCOUNT_ID}"
                 AWS_REGION          = "${AWS_REGION}"
                 ECR_REPOSITORY      = "${ECR_REPOSITORY}"
@@ -53,7 +53,7 @@ pipeline {
             stages {
                 stage('Checkout') {
                     steps {
-                        git branch: params.GIT_BRANCH, url: 'https://github.com/your-org/your-app.git' // ✏️ Update your Git URL
+                        git branch: params.GIT_BRANCH, url: 'https://github.com/ClintonChe/test-repo.git' // ✏️ Update your Git URL if needed
                     }
                 }
                 stage('Build and Push Image with Kaniko') {
