@@ -16,6 +16,14 @@ pipeline {
     agent none 
     stages {
         stage('Prepare Environment') {
+            agent {
+                ecs {
+                    cloud 'aws-ecs'
+                    label 'ecs-agent'
+                    launchType 'FARGATE'
+                    image 'jenkins-agent:1'
+                }
+            }
             steps {
                 script {
                     AWS_ACCOUNT_ID = sh(returnStdout: true, script: 'aws sts get-caller-identity --query Account --output text').trim()
