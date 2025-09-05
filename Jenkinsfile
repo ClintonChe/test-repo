@@ -11,7 +11,7 @@ pipeline {
     // Define a single agent for the entire pipeline.
     agent {
         ecs {
-            cloud 'aws-ecs' // 1. Explicitly specify the cloud name
+            // The 'cloud' parameter has been removed as it is not allowed by your Jenkins environment.
             label 'ecs-agent'
             launchType 'FARGATE'
             image 'jenkins-agent:1'
@@ -68,7 +68,10 @@ pipeline {
     // 3. Move post block to the correct top-level position
     post {
         always {
-            cleanWs()
+            // This ensures cleanWs runs on an agent with a workspace.
+            node('master') {
+                cleanWs()
+            }
         }
     }
 }
