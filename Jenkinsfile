@@ -68,10 +68,9 @@ pipeline {
     // 3. Move post block to the correct top-level position
     post {
         always {
-            // This ensures cleanWs runs on an agent with a workspace.
-            node('master') {
-                cleanWs()
-            }
+            // The cleanWs() step has been removed because the ECS agent's
+            // workspace is automatically destroyed when the agent terminates.
+            echo 'Pipeline finished. Workspace cleanup is handled by ECS agent termination.'
         }
     }
 }
