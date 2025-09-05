@@ -2,9 +2,8 @@
 parameters {
     string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'The Git branch to build')
 }
-
 // Global environment variables
-def AWS_REGION = 'us--east-1'
+def AWS_REGION = 'us-east-1'
 def APP_NAME = 'my-app'
 def AWS_ACCOUNT_ID
 def ECR_REPOSITORY
@@ -17,7 +16,6 @@ pipeline {
     agent none 
     stages {
         stage('Prepare Environment') {
-            agent any // ✅ FIX: Assign an agent for this stage to run shell commands
             steps {
                 script {
                     AWS_ACCOUNT_ID = sh(returnStdout: true, script: 'aws sts get-caller-identity --query Account --output text').trim()
@@ -35,16 +33,16 @@ pipeline {
                     cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
-                    inheritFrom 'jenkins-agent'
+                    taskDefinition 'jenkins-agent:1'
                     subnets PRIVATE_SUBNET_IDS
                     securityGroups AGENT_SECURITY_GROUP_ID
                     taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
                 }
             }
             environment {
-                AWS_ACCOUNT_ID      = "${AWS_ACCOUNT_ID}"
-                AWS_REGION          = "${AWS_REGION}"
-                ECR_REPOSITORY      = "${ECR_REPOSITORY}"
+                AWS_ACCOUNT_ID      = AWS_ACCOUNT_ID
+                AWS_REGION          = AWS_REGION
+                ECR_REPOSITORY      = ECR_REPOSITORY
                 ECS_CLUSTER_FARGATE = "${APP_NAME}-fargate-cluster"
                 ECS_SERVICE_FARGATE = "${APP_NAME}-fargate-service"
                 ECS_CLUSTER_EC2     = "${APP_NAME}-ec2-cluster"
@@ -53,7 +51,7 @@ pipeline {
             stages {
                 stage('Checkout') {
                     steps {
-                        git branch: params.GIT_BRANCH, url: 'https://github.com/ClintonChe/test-repo.git' // ✏️ Update your Git URL if needed
+                        git branch: params.GIT_BRANCH, url: 'https://github.com/your-org/your-app.git' // ✏️ Update your Git URL
                     }
                 }
                 stage('Build and Push Image with Kaniko') {
