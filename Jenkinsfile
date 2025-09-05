@@ -2,6 +2,7 @@
 parameters {
     string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'The Git branch to build')
 }
+
 // Global environment variables
 def AWS_REGION = 'us-east-1'
 def APP_NAME = 'my-app'
@@ -11,7 +12,6 @@ def VPC_ID
 def PRIVATE_SUBNET_IDS
 def AGENT_SECURITY_GROUP_ID
 
-// This block runs on the Jenkins controller before the agent is allocated
 pipeline {
     agent none 
     stages {
@@ -26,23 +26,22 @@ pipeline {
                 }
             }
         }
-        // This stage runs on the dynamically provisioned ECS agent
         stage('Build and Deploy') {
             agent {
                 ecs {
                     cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
-                    taskDefinition 'jenkins-agent:1'
+                    image 'jenkins-agent:1'  // Changed from taskDefinition to image
                     subnets PRIVATE_SUBNET_IDS
                     securityGroups AGENT_SECURITY_GROUP_ID
                     taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
                 }
             }
             environment {
-                AWS_ACCOUNT_ID      = AWS_ACCOUNT_ID
-                AWS_REGION          = AWS_REGION
-                ECR_REPOSITORY      = ECR_REPOSITORY
+                AWS_ACCOUNT_ID      = "${AWS_ACCOUNT_ID}"      // Added quotes
+                AWS_REGION          = "${AWS_REGION}"          // Added quotes
+                ECR_REPOSITORY      = "${ECR_REPOSITORY}"      // Added quotes
                 ECS_CLUSTER_FARGATE = "${APP_NAME}-fargate-cluster"
                 ECS_SERVICE_FARGATE = "${APP_NAME}-fargate-service"
                 ECS_CLUSTER_EC2     = "${APP_NAME}-ec2-cluster"
