@@ -6,78 +6,62 @@ parameters {
 // Global environment variables
 def AWS_REGION = 'us-east-1'
 def APP_NAME = 'my-app'
-def AWS_ACCOUNT_ID
-def ECR_REPOSITORY
-def VPC_ID
-def PRIVATE_SUBNET_IDS
-def AGENT_SECURITY_GROUP_ID
 
 pipeline {
-    agent none 
+    // Define a single agent for the entire pipeline.
+    // This agent will run all steps, including fetching AWS details.
+    agent {
+        ecs {
+            label 'ecs-agent'
+            launchType 'FARGATE'
+            image 'jenkins-agent:1'
+            // Note: Subnets and security groups must be defined in the ECS agent template
+            // in the Jenkins UI, as we can't use dynamic variables here.
+        }
+    }
     stages {
-        stage('Prepare Environment') {
-            agent {
-                ecs {
-                    label 'ecs-agent'
-                    launchType 'FARGATE'
-                    image 'jenkins-agent:1'
-                }
-            }
+        stage('Build and Deploy') {
             steps {
                 script {
-                    AWS_ACCOUNT_ID = sh(returnStdout: true, script: 'aws sts get-caller-identity --query Account --output text').trim()
-                    ECR_REPOSITORY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${APP_NAME}"
-                    VPC_ID = sh(returnStdout: true, script: "aws ec2 describe-vpcs --filters 'Name=tag:Name,Values=${APP_NAME}-vpc' --query 'Vpcs[0].VpcId' --output text").trim()
-                    PRIVATE_SUBNET_IDS = sh(returnStdout: true, script: "aws ec2 describe-subnets --filters 'Name=vpc-id,Values=${VPC_ID}' 'Name=tag:Name,Values=${APP_NAME}-private-*' --query 'Subnets[].SubnetId' --output text | tr '\\t' ','").trim()
-                    AGENT_SECURITY_GROUP_ID = sh(returnStdout: true, script: "aws ec2 describe-security-groups --filters 'Name=vpc-id,Values=${VPC_ID}' 'Name=group-name,Values=jenkins-sg' --query 'SecurityGroups[0].GroupId' --output text").trim()
-                }
-            }
-        }
-        stage('Build and Deploy') {
-            agent {
-                ecs {
-                    label 'ecs-agent'
-                    launchType 'FARGATE'
-                    image 'jenkins-agent:1'
-                    subnets PRIVATE_SUBNET_IDS
-                    securityGroups AGENT_SECURITY_GROUP_ID
-                    taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
-                }
-            }
-            environment {
-                AWS_ACCOUNT_ID      = "${AWS_ACCOUNT_ID}"      // Added quotes
-                AWS_REGION          = "${AWS_REGION}"          // Added quotes
-                ECR_REPOSITORY      = "${ECR_REPOSITORY}"      // Added quotes
-                ECS_CLUSTER_FARGATE = "${APP_NAME}-fargate-cluster"
-                ECS_SERVICE_FARGATE = "${APP_NAME}-fargate-service"
-                ECS_CLUSTER_EC2     = "${APP_NAME}-ec2-cluster"
-                ECS_SERVICE_EC2     = "${APP_NAME}-ec2-service"
-            }
-            stages {
-                stage('Checkout') {
-                    steps {
-                        git branch: params.GIT_BRANCH, url: 'https://github.com/your-org/your-app.git' // ✏️ Update your Git URL
+                    // Fetch AWS details first
+                    def awsAccountId = sh(returnStdout: true, script: 'aws sts get-caller-identity --query Account --output text').trim()
+                    def ecrRepository = "${awsAccountId}.dkr.ecr.${AWS_REGION}.amazonaws.com/${APP_NAME}"
+                    
+                    // Set environment variables for subsequent steps in this stage
+                    env.AWS_ACCOUNT_ID = awsAccountId
+                    env.ECR_REPOSITORY = ecrRepository
+                    env.ECS_CLUSTER_FARGATE = "${APP_NAME}-fargate-cluster"
+                    env.ECS_SERVICE_FARGATE = "${APP_NAME}-fargate-service"
+                    env.ECS_CLUSTER_EC2 = "${APP_NAME}-ec2-cluster"
+                    env.ECS_SERVICE_EC2 = "${APP_NAME}-ec2-service"
+
+                    // Now run the build and deploy steps
+                    
+                    // Checkout
+                    stage('Checkout') {
+                        git branch: params.GIT_BRANCH, url: 'https://github.com/ClintonChe/test-repo.git'
                     }
-                }
-                stage('Build and Push Image with Kaniko') {
-                    steps {
+
+                    // Build and Push
+                    stage('Build and Push Image with Kaniko') {
                         sh """
                         /kaniko/executor --dockerfile=Dockerfile --context=dir://\${WORKSPACE} \
-                           --destination=${ECR_REPOSITORY}:${env.BUILD_NUMBER} \
-                           --destination=${ECR_REPOSITORY}:latest
+                           --destination=${env.ECR_REPOSITORY}:${env.BUILD_NUMBER} \
+                           --destination=${env.ECR_REPOSITORY}:latest
                         """
                     }
-                }
-                stage('Deploy to Staging (Fargate)') {
-                    steps {
-                        sh "aws ecs update-service --cluster ${ECS_CLUSTER_FARGATE} --service ${ECS_SERVICE_FARGATE} --force-new-deployment --region ${AWS_REGION}"
+
+                    // Deploy to Staging
+                    stage('Deploy to Staging (Fargate)') {
+                        sh "aws ecs update-service --cluster ${env.ECS_CLUSTER_FARGATE} --service ${env.ECS_SERVICE_FARGATE} --force-new-deployment --region ${AWS_REGION}"
                     }
-                }
-                stage('Deploy to Production (EC2)') {
-                    when { branch 'main' }
-                    steps {
-                        input message: 'Deploy to production (EC2)?', ok: 'Deploy'
-                        sh "aws ecs update-service --cluster ${ECS_CLUSTER_EC2} --service ${ECS_SERVICE_EC2} --force-new-deployment --region ${AWS_REGION}"
+
+                    // Deploy to Production
+                    stage('Deploy to Production (EC2)') {
+                        if (env.GIT_BRANCH == 'main') {
+                            input message: 'Deploy to production (EC2)?', ok: 'Deploy'
+                            sh "aws ecs update-service --cluster ${env.ECS_CLUSTER_EC2} --service ${env.ECS_SERVICE_EC2} --force-new-deployment --region ${AWS_REGION}"
+                        }
                     }
                 }
             }
