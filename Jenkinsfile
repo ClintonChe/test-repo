@@ -2,6 +2,7 @@
 parameters {
     string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'The Git branch to build')
 }
+
 // Global environment variables
 def AWS_REGION = 'us-east-1'
 def APP_NAME = 'my-app'
@@ -33,16 +34,17 @@ pipeline {
                     cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
-                    taskDefinition 'jenkins-agent:1'
+                    inheritFrom 'jenkins-agent' // ✅ CORRECTED PARAMETER
                     subnets PRIVATE_SUBNET_IDS
                     securityGroups AGENT_SECURITY_GROUP_ID
                     taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
                 }
             }
             environment {
-                AWS_ACCOUNT_ID      = AWS_ACCOUNT_ID
-                AWS_REGION          = AWS_REGION
-                ECR_REPOSITORY      = ECR_REPOSITORY
+                // ✅ CORRECTED ASSIGNMENTS
+                AWS_ACCOUNT_ID      = "${AWS_ACCOUNT_ID}"
+                AWS_REGION          = "${AWS_REGION}"
+                ECR_REPOSITORY      = "${ECR_REPOSITORY}"
                 ECS_CLUSTER_FARGATE = "${APP_NAME}-fargate-cluster"
                 ECS_SERVICE_FARGATE = "${APP_NAME}-fargate-service"
                 ECS_CLUSTER_EC2     = "${APP_NAME}-ec2-cluster"
