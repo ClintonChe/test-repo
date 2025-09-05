@@ -18,7 +18,6 @@ pipeline {
         stage('Prepare Environment') {
             agent {
                 ecs {
-                    cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
                     image 'jenkins-agent:1'
@@ -37,10 +36,9 @@ pipeline {
         stage('Build and Deploy') {
             agent {
                 ecs {
-                    cloud 'aws-ecs'
                     label 'ecs-agent'
                     launchType 'FARGATE'
-                    image 'jenkins-agent:1'  // Changed from taskDefinition to image
+                    image 'jenkins-agent:1'
                     subnets PRIVATE_SUBNET_IDS
                     securityGroups AGENT_SECURITY_GROUP_ID
                     taskrole "arn:aws:iam::${AWS_ACCOUNT_ID}:role/JenkinsAgentECSTaskRole"
